@@ -453,10 +453,10 @@ class PelotonWorkout(PelotonObject):
         return PelotonWorkoutFactory.get(workout_id)
 
     @classmethod
-    def list(cls):
+    def list(cls, pages=0):
         """ Return a list of all workouts
         """
-        return PelotonWorkoutFactory.list()
+        return PelotonWorkoutFactory.list(pages=pages)
 
     @classmethod
     def latest(cls):
@@ -617,7 +617,7 @@ class PelotonWorkoutFactory(PelotonAPI):
     """
 
     @classmethod
-    def list(cls, results_per_page=10):
+    def list(cls, results_per_page=10, pages=0):
         """ Return a list of PelotonWorkout instances that describe
             each workout
         """
@@ -628,8 +628,10 @@ class PelotonWorkoutFactory(PelotonAPI):
             cls._create_api_session()
 
         uri = '/api/user/{}/workouts'.format(cls.user_id)
+        start_page = 0
+        end_page = 0
         params = {
-            'page': 0,
+            'page': start_page,
             'limit': results_per_page,
             'joins': 'ride,ride.instructor'
         }
@@ -640,8 +642,20 @@ class PelotonWorkoutFactory(PelotonAPI):
         # Add this pages data to our return list
         ret = [PelotonWorkout(**workout) for workout in res['data']]
 
+        if pages == 0:
+            # Return first page only
+            return ret
+        elif pages == -1:
+            # Return all pages
+            end_page = res['page_count']
+        elif (pages > 0) and (pages <= res['page_count']):
+            # Include pages from 1 to n
+            end_page = pages
+        else:
+            return ret
+
         # We've got page 0, so start with page 1
-        for i in range(1, res['page_count']):
+        for i in range(1, end_page):
 
             params['page'] += 1
             res = cls._api_request(uri, params).json()
